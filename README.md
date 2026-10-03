@@ -21,16 +21,17 @@ structured relational database.
 
 ### Main Features
 
--   View books
--   Search books
--   Add books
--   View members
--   Add members
--   Issue books
--   Return books
--   View issued books
--   View overdue books
--   Maintain book, member and circulation information
+- Book management: view, search by title/ISBN, add, update price and delete
+- Member management: view, find, search, add and update members
+- Author and category viewing
+- Branch and physical copy management
+- Book issue and return
+- Current issued books and member borrowing history
+- Overdue book detection
+- Fine management
+- Book reservations
+- Book reviews and average ratings
+- Library reports and aggregate queries
 
 ------------------------------------------------------------------------
 
@@ -547,20 +548,236 @@ The database connection is handled through `DBConnection.java`.
 
 ------------------------------------------------------------------------
 
+# 🧾 Operations Available in the Application
+
+The console application in `Main.java` now exposes the main operations present in
+`sql/library_queries.sql`. The menu structure is kept number-based so the
+application remains simple while covering the database functionality.
+
+## Main Menu
+
+```text
+========================================
+       LIBRARY MANAGEMENT SYSTEM
+========================================
+
+1. Books
+2. Members
+3. Authors
+4. Categories
+5. Branch & Copies
+6. Issue Book
+7. Return Book
+8. Loan Reports
+9. Fines
+10. Reservations
+11. Reviews
+12. Reports
+13. Exit
+```
+
+## Books
+
+```text
+1. View Books
+2. Search Book by Title
+3. Search Book by ISBN
+4. View Available Books
+5. Add Book
+6. Update Book Price
+7. Delete Book
+8. Back
+```
+
+These operations correspond to the book queries in `library_queries.sql`:
+viewing books with related category/publisher data, searching by title or ISBN,
+checking availability, and performing `INSERT`, `UPDATE` and `DELETE`.
+
+## Members
+
+```text
+1. View Members
+2. Find Member by Card No
+3. View Active Members
+4. Add Member
+5. Update Member Phone
+6. Search Member by Name
+7. Back
+```
+
+These operations cover member retrieval, filtering, insertion, updating and
+name-based searching.
+
+## Authors
+
+```text
+1. View Authors
+2. View Books with Authors
+3. Back
+```
+
+`BOOK_AUTHOR` is used to connect books and authors.
+
+## Categories
+
+```text
+1. View Categories
+2. Count Books by Category
+3. Back
+```
+
+The second operation uses `COUNT()` with `GROUP BY`.
+
+## Branch & Copies
+
+```text
+1. View Copies by Branch
+2. Find Book Across Branches
+3. Back
+```
+
+These operations combine `BOOK_COPIES`, `BOOK` and `LIBRARY_BRANCH` using
+`JOIN`s.
+
+## Issue and Return
+
+### Issue Book
+
+The application:
+
+1. Checks that the member exists and is active.
+2. Prevents the same member from having the same book issued twice.
+3. Finds an available physical copy.
+4. Selects an existing staff member.
+5. Creates the loan record.
+6. Decreases available copies.
+7. Commits both changes as one transaction.
+
+```text
+START TRANSACTION
+       ↓
+INSERT INTO BOOK_LOANS
+       ↓
+UPDATE BOOK_COPIES
+       ↓
+COMMIT
+```
+
+### Return Book
+
+The application:
+
+1. Finds the active loan for the selected book and member.
+2. Sets `date_in`.
+3. Increases available copies.
+4. Commits the changes.
+
+```text
+START TRANSACTION
+       ↓
+UPDATE BOOK_LOANS
+       ↓
+UPDATE BOOK_COPIES
+       ↓
+COMMIT
+```
+
+## Loan Reports
+
+```text
+1. Currently Issued Books
+2. Member Borrowing History
+3. Overdue Books
+4. Back
+```
+
+Overdue books are identified using:
+
+```text
+date_in IS NULL
+AND
+due_date < CURDATE()
+```
+
+The number of overdue days is calculated using `DATEDIFF()`.
+
+## Fines
+
+```text
+1. View Unpaid Fines
+2. Add Fine
+3. Mark Fine as Paid
+4. Back
+```
+
+## Reservations
+
+```text
+1. View Pending Reservations
+2. Add Reservation
+3. Cancel Reservation
+4. Back
+```
+
+## Reviews
+
+```text
+1. View Reviews for a Book
+2. Add Review
+3. Average Rating for Each Book
+4. Back
+```
+
+The average-rating operation uses `AVG()`, `COUNT()`, `GROUP BY` and `ROUND()`.
+
+## Reports
+
+```text
+1. Books by Category
+2. Most Borrowed Books
+3. Total Books
+4. Total Available Copies
+5. Members with Active Loans
+6. Back
+```
+
+These reports demonstrate aggregate functions such as `COUNT()` and `SUM()`,
+together with `JOIN`, `GROUP BY` and `ORDER BY`.
+
 # 💻 Application Structure
 
-``` text
+```text
 User
  │
  ▼
 Main.java
  │
- ├── Book Management
- ├── Member Management
- ├── Issue Book
- ├── Return Book
- ├── View Issued Books
- └── Overdue Books
+ ├── Books
+ │    ├── View
+ │    ├── Search by Title
+ │    ├── Search by ISBN
+ │    ├── Available Books
+ │    ├── Add
+ │    ├── Update Price
+ │    └── Delete
+ │
+ ├── Members
+ │    ├── View
+ │    ├── Find
+ │    ├── Active Members
+ │    ├── Add
+ │    ├── Update Phone
+ │    └── Search
+ │
+ ├── Authors
+ ├── Categories
+ ├── Branch & Copies
+ ├── Issue / Return
+ ├── Loan Reports
+ ├── Fines
+ ├── Reservations
+ ├── Reviews
+ └── Reports
  │
  ▼
 DBConnection.java
@@ -569,54 +786,26 @@ DBConnection.java
 MySQL Database
 ```
 
-------------------------------------------------------------------------
+# 🧭 Application Menu
 
-# 📋 Console Menu
+The application uses a simple number-based console interface. The complete menu
+in `Main.java` matches the operations implemented in the application.
 
-The application uses a simple number-based console interface:
-
-``` text
-========================================
-       LIBRARY MANAGEMENT SYSTEM
-========================================
-
+```text
 1. Books
 2. Members
-3. Issue Book
-4. Return Book
-5. View Issued Books
-6. Overdue Books
-7. Exit
+3. Authors
+4. Categories
+5. Branch & Copies
+6. Issue Book
+7. Return Book
+8. Loan Reports
+9. Fines
+10. Reservations
+11. Reviews
+12. Reports
+13. Exit
 ```
-
-This keeps the application simple and focuses on the database
-functionality.
-
-------------------------------------------------------------------------
-
-# 🔄 Book Issue and Return
-
-### Issue Book
-
-When a book is issued:
-
-1.  The book is selected.
-2.  The member is identified using the card number.
-3.  Availability is checked.
-4.  A loan record is created.
-5.  The issue date and due date are stored.
-6.  The staff member issuing the book is recorded.
-
-### Return Book
-
-When a book is returned:
-
-1.  The active loan is identified.
-2.  The return date is recorded.
-3.  Book availability is updated.
-4.  The circulation history remains stored.
-
-------------------------------------------------------------------------
 
 # ▶️ How to Run
 
